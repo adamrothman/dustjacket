@@ -47,7 +47,7 @@ when whoever started the run re-runs it.
 
 ## Security
 
-Report a vulnerability privately; see `SECURITY.md`.
+Report a vulnerability privately; see `.github/SECURITY.md`.
 
 ## License
 

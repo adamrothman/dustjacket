@@ -277,8 +277,8 @@ collaborator's.
 
 ## Security reports
 
-`SECURITY.md` asks people to report a vulnerability privately, with
-**Report a vulnerability** on the Security and quality tab (private
+`.github/SECURITY.md` asks people to report a vulnerability privately,
+with **Report a vulnerability** on the Security and quality tab (private
 vulnerability reporting is on). A report arrives as a proposed security
 advisory there, and GitHub notifies Adam.
 
