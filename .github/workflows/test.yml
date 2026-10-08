@@ -1,0 +1,30 @@
+name: Test
+
+# Runs on every PR, and on main as the first job of the Deploy workflow,
+# which deploys only once it passes.
+on:
+  pull_request:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Format
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      # The same flags as the Deploy build, so the two share the Go build
+      # cache (-trimpath changes every package's cache key).
+      - name: Build for Lambda
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags="-s -w" -o /dev/null ./cmd/dustjacket

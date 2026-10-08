@@ -1,0 +1,34 @@
+# Dependabot version updates. This file only drives the scheduled version
+# bumps; security updates are turned on separately, in the repo's Security
+# settings, and are not held by the cooldown.
+#
+# Go modules' minor and patch bumps come as one weekly PR (the AWS SDK alone
+# is many modules that often move together), and each major as its own,
+# since those usually need a human read. GitHub Actions come as one weekly
+# PR, majors included, as in membrane: there are only three, and one read of
+# their release notes covers the lot. The cooldown waits a week after a
+# release before proposing it, so a compromised or quickly-yanked release
+# has time to be noticed upstream first. Merging a PR deploys it.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      gomod-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]

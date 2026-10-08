@@ -1,0 +1,19 @@
+{{define "title"}}Connect Hardcover{{end}}
+{{define "content"}}
+<h1>Connect Claude to Hardcover</h1>
+<p><strong>{{.ClientName}}</strong> wants to use your Hardcover account through Dustjacket, a small personal server that isn't affiliated with Hardcover.</p>
+{{if .Message}}<p class="message" role="alert">{{.Message}}</p>{{end}}
+<form method="post" action="/oauth/authorize">
+  <input type="hidden" name="q" value="{{.Query}}">
+  <ol>
+    <li><a href="{{.KeyURL}}" target="_blank" rel="noopener noreferrer">Create a Hardcover API key</a>. The permissions Dustjacket needs are already selected.</li>
+    <li><label for="key">Paste the key here:</label>
+      <input id="key" name="key" type="password" autocomplete="off" spellcheck="false" required></li>
+  </ol>
+  <p class="actions">
+    <button type="submit" name="decision" value="connect">Connect</button>
+    <button type="submit" name="decision" value="cancel" formnovalidate>Cancel</button>
+  </p>
+</form>
+<p class="small">Dustjacket keeps your key encrypted and uses it only for what you ask Claude to do. To cut it off, delete the key on Hardcover or remove the connector in Claude.</p>
+{{end}}

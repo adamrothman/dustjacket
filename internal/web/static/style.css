@@ -1,0 +1,61 @@
+:root {
+  color-scheme: light dark;
+  --text: #1f1d1a;
+  --muted: #6b665e;
+  --bg: #fbf8f3;
+  --accent: #7a3e1d;
+  --alert: #9b1c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #ece7df;
+    --muted: #a39d93;
+    --bg: #1b1916;
+    --accent: #e0a37e;
+    --alert: #f19999;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.5 system-ui, sans-serif;
+}
+
+main {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+a { color: var(--accent); }
+code { overflow-wrap: anywhere; }
+.small { color: var(--muted); font-size: 0.9em; }
+.message { color: var(--alert); font-weight: 600; }
+li { margin-bottom: 1rem; }
+label { display: block; }
+
+input[type="password"] {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.6rem;
+  font: inherit;
+}
+
+.actions { display: flex; gap: 0.75rem; }
+
+button {
+  padding: 0.6rem 1.2rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+button[value="connect"] {
+  background: var(--accent);
+  color: var(--bg);
+  border: 0;
+  border-radius: 4px;
+}

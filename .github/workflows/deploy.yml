@@ -1,0 +1,60 @@
+# Pushes to main run the Test workflow, then build the arm64 Lambda
+# binary and update the function's code. Terraform (personal-infra,
+# acct-apps/dustjacket) owns the function's configuration and ignores
+# code changes; this workflow owns the code.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  FUNCTION_NAME: dustjacket
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  deploy:
+    needs: test
+    # A re-run keeps the run's actor, the account AWS checks, so without
+    # this anyone with write access could re-run an old deploy and roll
+    # the function back. Only whoever started a run may re-run it into a
+    # deploy (decision 24).
+    if: github.triggering_actor == github.actor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath -ldflags="-s -w" -o bootstrap ./cmd/dustjacket
+          zip -q dustjacket.zip bootstrap
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          # A secret, not a variable, so the logs show *** for it, and
+          # the account ID is masked wherever else it appears (decision 25).
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          mask-aws-account-id: true
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Update function code
+        run: |
+          aws lambda update-function-code --function-name "$FUNCTION_NAME" --zip-file fileb://dustjacket.zip > /dev/null
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          aws lambda get-function-configuration --function-name "$FUNCTION_NAME" --query '{Version:Version,LastModified:LastModified,CodeSize:CodeSize}'
