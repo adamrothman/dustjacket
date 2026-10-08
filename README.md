@@ -45,6 +45,10 @@ is the `AWS_ROLE_ARN` Actions secret. Terraform (`personal-infra`, `acct-apps/du
 function's configuration and ignores its code. A re-run deploys only
 when whoever started the run re-runs it.
 
+## Security
+
+Report a vulnerability privately; see `.github/SECURITY.md`.
+
 ## License
 
 MIT; see `LICENSE`.

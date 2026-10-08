@@ -267,10 +267,20 @@ removing them there ends their access.
 
 The repository is public (decision 26), so anyone can fork it and open
 issues and pull requests. A fork's pull request runs its own copy of
-`test.yml`, with no secrets and a read-only `GITHUB_TOKEN`; a first-time
-contributor's waits for approval in the pull request's checks, so read
-its changes, `.github/` above all, before approving. Its comments reach
-agent sessions that watch the pull request, like a collaborator's.
+`test.yml`, with no secrets and a read-only `GITHUB_TOKEN`. Every run
+for someone who isn't a collaborator waits for approval in the pull
+request's checks (the repository's Actions settings require it for all
+outside contributors, `all_external_contributors`, not only first-time
+ones), so read its changes, `.github/` above all, before approving. Its
+comments reach agent sessions that watch the pull request, like a
+collaborator's.
+
+## Security reports
+
+`.github/SECURITY.md` asks people to report a vulnerability privately,
+with **Report a vulnerability** on the Security and quality tab (private
+vulnerability reporting is on). A report arrives as a proposed security
+advisory there, and GitHub notifies Adam.
 
 ## The deploy role's ARN
 
