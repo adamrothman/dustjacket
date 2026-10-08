@@ -186,5 +186,8 @@ or amends the one it revises and says so.
     can now read the code, the docs and the Actions logs, which decision
     25 keeps the account ID out of, and open issues and pull requests from
     forks: a fork's pull request runs the Test workflow with no secrets
-    and a read-only token, and a first-time contributor's waits for
-    approval (runbook, "Pull requests from forks").
+    and a read-only token, and waits for approval unless its author is a
+    collaborator (runbook, "Pull requests from forks"). (Amended: this
+    first said only a first-time contributor's waits, GitHub's default;
+    the repository now requires approval for every outside
+    contributor's run.)
