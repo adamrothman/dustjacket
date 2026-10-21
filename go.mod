@@ -1,6 +1,6 @@
 module github.com/adamrothman/dustjacket
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/agnivade/levenshtein v1.2.1
