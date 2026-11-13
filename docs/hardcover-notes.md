@@ -52,3 +52,10 @@ admin's connected key, and since added to `TestLiveReads`.
 | # | Question | Finding |
 |---|---|---|
 | L21 | Does `users(where: {username: {_eq: $username}})` find someone by username, and how? | Yes, with `$username: citext!`. It ignores case: the key owner's username in other capitals, and two followed users' in odd capitals, each returned the one user with the username as Hardcover stores it. It found a user the key's owner doesn't follow too. A username nobody has returned `users: []` and no error. Not checked: a private account, or one that has blocked the key's owner. |
+
+Seen on 2026-11-13 (UTC), during about 40 minutes when Hardcover's API was
+degraded, in Dustjacket's log and in requests sent without a key.
+
+| # | Question | Finding |
+|---|---|---|
+| L22 | What does a degraded Hardcover look like? | Mixed answers to the same request, minutes or seconds apart: normal ones (a request without a key got its usual HTTP 400 `{"error":"invalid_request","error_description":"No Authorization header"}` in 0.4 s), HTTP 503 with the plain-text body `no available server` in about 0.1 to 0.3 s, HTTP 502 `Bad Gateway` after about 18 s, and no answer within 20 s. Some answers that did come took 16 to 18 s. The failures counted against no rate limit: `daily` fell only on successes. Which query was sent made no difference (`me`, `user_books`, `user_books_aggregate` and a mutation all failed and succeeded). |

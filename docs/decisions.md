@@ -191,3 +191,22 @@ or amends the one it revises and says so.
     first said only a first-time contributor's waits, GitHub's default;
     the repository now requires approval for every outside
     contributor's run.)
+27. **A request Hardcover couldn't serve says what happened** (amends 20
+    and the spec's error table). One sentence, "Hardcover timed out or is
+    unavailable", covered a timeout, a failed connection, a 408 and every
+    5xx. When Hardcover was degraded on 2026-11-13 (hardcover-notes L22),
+    Claude saw only that, took the failures for something about the
+    queries that happened to fail, and it took the Lambda log to see the
+    503s. The message now gives the status, Hardcover's body and how long
+    it took ("Hardcover returned HTTP 503 after 85 ms: no available
+    server"), or "Hardcover didn't answer within 20.0 seconds", or
+    "Couldn't reach Hardcover" with the cause. A 5xx or a failed
+    connection says the failure is Hardcover's and not the query's; a
+    timeout or 408, which a heavy query can also cause, says to try
+    `{ me { id } }` to tell. Both say to stop and tell the person if it
+    keeps failing rather than keep retrying. Reads are still "safe to
+    retry"; a mutation still says the change may or may not have been
+    made and to check first, whichever of these it was. The overview
+    guide has the same advice ("When a request fails"). The body is
+    Hardcover's answer to the caller's own request, cut to 500
+    characters, and goes to the caller only, never the log.

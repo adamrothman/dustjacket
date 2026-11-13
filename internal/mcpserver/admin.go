@@ -87,6 +87,7 @@ func (t *tools) allowlistAdd(ctx context.Context, _ *mcp.CallToolRequest, in Use
 	if name == "" {
 		return nil, nil, errors.New("give the Hardcover username of the person to add")
 	}
+	start := time.Now()
 	u, err := t.hc.UserByUsername(ctx, t.key, name)
 	switch {
 	case errors.Is(err, hardcover.ErrNoSuchUser):
@@ -95,7 +96,7 @@ func (t *tools) allowlistAdd(ctx context.Context, _ *mcp.CallToolRequest, in Use
 	case err != nil:
 		var he *hardcover.Error
 		if errors.As(err, &he) {
-			return nil, nil, errors.New(describe(err, ast.Query))
+			return nil, nil, errors.New(describe(err, ast.Query, time.Since(start)))
 		}
 		return nil, nil, fmt.Errorf("couldn't look up @%s on Hardcover: %v", name, err)
 	}

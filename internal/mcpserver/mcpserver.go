@@ -143,9 +143,10 @@ func (t *tools) run(ctx context.Context, tool string, want ast.Operation, in Gra
 	case err != nil:
 		status = 0
 	}
-	t.log.Add("hc_status", status, "hc_ms", time.Since(start).Milliseconds())
+	took := time.Since(start)
+	t.log.Add("hc_status", status, "hc_ms", took.Milliseconds())
 	if err != nil {
-		return nil, nil, errors.New(describe(err, want))
+		return nil, nil, errors.New(describe(err, want, took))
 	}
 	// Not json.Marshal: it would escape &, < and > in titles and reviews.
 	var buf bytes.Buffer
@@ -205,9 +206,8 @@ func tooLarge(size string, op ast.Operation) string {
 }
 
 // describe turns a failed Hardcover request into what Claude should know
-// to act on it. A mutation that got no answer may still have been applied
-// (Hardcover allows 30 s; Dustjacket waits 20), so it isn't safe to repeat.
-func describe(err error, op ast.Operation) string {
+// to act on it; took is how long Hardcover had.
+func describe(err error, op ast.Operation, took time.Duration) string {
 	var he *hardcover.Error
 	if !errors.As(err, &he) {
 		return "The request to Hardcover failed: " + err.Error()
@@ -229,12 +229,52 @@ func describe(err error, op ast.Operation) string {
 			wait = "a few"
 		}
 		return "Rate limited by Hardcover; retry after " + wait + " seconds."
-	case he.Retryable() && op == ast.Mutation:
-		return "Hardcover timed out or is unavailable, so the change may or may not have been made. Check with hardcover_query before trying it again."
 	case he.Retryable():
-		return "Hardcover timed out or is unavailable; this is safe to retry."
+		return unavailable(he, op, took)
 	}
 	return fmt.Sprintf("Hardcover returned HTTP %d: %s", he.Status, he.Body)
+}
+
+// unavailable is a request Hardcover couldn't serve: no answer in time, no
+// connection, a 408 or a 5xx. It says which, and how long it took, so that
+// an outage reads as one; whether the request itself could be the cause (it
+// can when Hardcover ran out of time, not when it was down); and when to
+// stop retrying (docs/decisions.md 27). A mutation may still have been
+// applied (Hardcover allows 30 s; Dustjacket waits 20), so it's never
+// called safe to repeat (decision 20).
+func unavailable(he *hardcover.Error, op ast.Operation, took time.Duration) string {
+	var timeout interface{ Timeout() bool }
+	ranOut := he.Status == http.StatusRequestTimeout
+	var what string
+	switch {
+	case he.Status == 0 && errors.As(he.Err, &timeout) && timeout.Timeout(), he.Status == 0 && errors.Is(he.Err, context.DeadlineExceeded):
+		ranOut = true
+		what = "Hardcover didn't answer within " + duration(took) + "."
+	case he.Status == 0:
+		what = "Couldn't reach Hardcover: " + he.Err.Error() + "."
+	case he.Body == "":
+		what = fmt.Sprintf("Hardcover returned HTTP %d after %s.", he.Status, duration(took))
+	default:
+		what = fmt.Sprintf("Hardcover returned HTTP %d after %s: %s.", he.Status, duration(took), he.Body)
+	}
+	const stop = "stop and tell the person Hardcover appears to be having trouble"
+	switch {
+	case op == ast.Mutation && ranOut:
+		return what + " The change may or may not have been made. Check with hardcover_query before trying it again. If queries fail the same way, " + stop + "."
+	case op == ast.Mutation:
+		return what + " This is a failure on Hardcover's side, not a problem with the mutation, but the change may or may not have been made. Check with hardcover_query before trying it again. If queries fail too, " + stop + "."
+	case ranOut:
+		return what + " A heavy query can cause this, and so can trouble at Hardcover; this is safe to retry. If a trivial query such as `{ me { id } }` fails too, " + stop + "; if only this query fails, ask for less."
+	}
+	return what + " This is a failure on Hardcover's side, not a problem with the query; this is safe to retry. If it fails again, " + stop + " rather than changing the query."
+}
+
+// duration is d as a person would say it: "85 ms", "18.7 seconds".
+func duration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%d ms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1f seconds", d.Seconds())
 }
 
 func (t *tools) docs(_ context.Context, _ *mcp.CallToolRequest, in DocsInput) (*mcp.CallToolResult, any, error) {

@@ -43,6 +43,18 @@ query Me {
 - `recommendations`: suggesting books from their history
 - `limits`: rate limits, request limits, disabled operators
 
+## When a request fails
+
+A tool error says what Hardcover did. "Hardcover returned HTTP 502" (or
+503) and "Couldn't reach Hardcover" mean Hardcover is down or degraded: the
+query is not the cause, so don't rewrite it. "Hardcover didn't answer
+within ..." can be a heavy query or the same trouble; run
+`query { me { id } }` to tell them apart. During trouble some requests
+still succeed, so which queries failed says nothing about the queries.
+Retry a read once; if it fails again, stop and tell the person Hardcover
+appears to be having trouble. After a failed mutation, read the data back
+before trying again: the change may have been made.
+
 ## Traps
 
 - Names match only through `search`; `_like` and `_ilike` are disabled.
