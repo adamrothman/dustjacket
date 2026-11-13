@@ -67,11 +67,12 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 type env struct {
-	url   string
-	token string
-	hc    *fakeHardcover
-	store *store.Memory
-	logs  *[][]any
+	url     string
+	token   string
+	hc      *fakeHardcover
+	handler *Handler
+	store   *store.Memory
+	logs    *[][]any
 }
 
 // newEnv serves the handler for a connected user, 7 "adam", on the
@@ -126,7 +127,7 @@ func newEnvFor(t *testing.T, admin bool) *env {
 		mu.Unlock()
 	}))
 	t.Cleanup(srv.Close)
-	return &env{url: srv.URL, token: tok, hc: hc, store: st, logs: logs}
+	return &env{url: srv.URL, token: tok, hc: hc, handler: h, store: st, logs: logs}
 }
 
 func (e *env) session(t *testing.T) *mcp.ClientSession {
@@ -263,7 +264,6 @@ func TestHardcoverFailures(t *testing.T) {
 		{403, nil, `{"error":"top_level_limit_exceeded"}`, "at most 5 top-level fields"},
 		{403, nil, `{"error":"unsupported_operation"}`, `Hardcover refused the request: {"error":"unsupported_operation"}`},
 		{429, map[string]string{"Retry-After": "7"}, `{}`, "retry after 7 seconds"},
-		{503, nil, ``, "safe to retry"},
 		{200, nil, `{"data":"` + strings.Repeat("x", 150<<10) + `"}`, "over the 100 KB limit"},
 	} {
 		e.hc.set(tc.status, tc.header, tc.reply)
@@ -288,8 +288,6 @@ func TestMutationFailuresDontInviteARetry(t *testing.T) {
 		want    string
 		wantNot string
 	}{
-		{503, nil, ``, "may or may not have been made. Check with hardcover_query before trying it again", "safe to retry"},
-		{408, nil, ``, "may or may not have been made", "safe to retry"},
 		{200, nil, `{"data":"` + strings.Repeat("x", 150<<10) + `"}`, "The change was made, but its response was 150 KB", "Ask for fewer fields or add a `limit`"},
 		{200, nil, `{"data":"` + strings.Repeat("x", 5<<20) + `"}`, "The change was made, but its response was over 4 MB", "4096 KB"},
 		// Refused outright: nothing happened, and waiting is the fix.
@@ -301,10 +299,65 @@ func TestMutationFailuresDontInviteARetry(t *testing.T) {
 			t.Errorf("HTTP %d: %v %.300s", tc.status, isErr, text)
 		}
 	}
-	// Reads are still safe to retry.
-	e.hc.set(503, nil, ``)
-	if text, _ := call(t, sess, "hardcover_query", map[string]any{"query": "{ me { id } }"}); !strings.Contains(text, "safe to retry") {
-		t.Errorf("query 503: %s", text)
+}
+
+// A request Hardcover couldn't serve says what came back and how fast,
+// whose side the failure is on, and when to stop retrying, so Claude
+// doesn't go looking for the cause in the query (decision 27). For a
+// mutation it never says "safe to retry" (decision 20).
+func TestHardcoverUnavailable(t *testing.T) {
+	const (
+		theirs  = "This is a failure on Hardcover's side, not a problem with the "
+		unsure  = "If a trivial query such as `{ me { id } }` fails too, stop and tell"
+		stop    = "stop and tell the person Hardcover appears to be having trouble"
+		recheck = "may or may not have been made. Check with hardcover_query before trying it again"
+	)
+	release := make(chan struct{})
+	hang := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-release }))
+	t.Cleanup(func() { close(release); hang.Close() })
+	gone := httptest.NewServer(http.NotFoundHandler())
+	gone.Close()
+
+	e := newEnv(t)
+	sess := e.session(t)
+	answering := e.handler.Hardcover
+	for _, tc := range []struct {
+		name   string
+		client *hardcover.Client
+		status int
+		reply  string
+		what   string
+		side   string // whose failure it is
+	}{
+		{"503", answering, 503, "no available server\n", "Hardcover returned HTTP 503 after ", theirs},
+		{"503 body", answering, 503, "no available server\n", " ms: no available server. ", theirs},
+		{"502 no body", answering, 502, "", " ms. ", theirs},
+		{"408", answering, 408, `{"error":"Request timeout"}`, `Hardcover returned HTTP 408 after `, unsure},
+		{"timeout", &hardcover.Client{URL: hang.URL, HTTP: &http.Client{Timeout: 50 * time.Millisecond}}, 0, "", "Hardcover didn't answer within ", unsure},
+		{"network", &hardcover.Client{URL: gone.URL}, 0, "", "Couldn't reach Hardcover: ", theirs},
+	} {
+		e.handler.Hardcover = tc.client
+		e.hc.set(tc.status, nil, tc.reply)
+
+		text, isErr := call(t, sess, "hardcover_query", map[string]any{"query": "{ me { id } }"})
+		for _, want := range []string{tc.what, tc.side, "safe to retry", stop} {
+			if !isErr || !strings.Contains(text, want) {
+				t.Errorf("%s query: %v, want %q in: %s", tc.name, isErr, want, text)
+			}
+		}
+		if strings.Contains(text, "may or may not") {
+			t.Errorf("%s query: %s", tc.name, text)
+		}
+
+		text, isErr = call(t, sess, "hardcover_mutate", map[string]any{"query": `mutation { insert_list(object: {name: "x"}) { id } }`})
+		for _, want := range []string{tc.what, recheck} {
+			if !isErr || !strings.Contains(text, want) {
+				t.Errorf("%s mutation: %v, want %q in: %s", tc.name, isErr, want, text)
+			}
+		}
+		if strings.Contains(text, "safe to retry") {
+			t.Errorf("%s mutation: %s", tc.name, text)
+		}
 	}
 }
 

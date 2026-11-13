@@ -17,4 +17,6 @@
   `_nregex`, `_niregex`, `_similar` and `_nsimilar` are disabled. Match text
   with `search`.
 - **Errors:** a 429 says how many seconds to wait; wait before retrying.
-  A missing-scope error names the scope the person's key lacks.
+  A missing-scope error names the scope the person's key lacks. A 5xx, a
+  refused connection or no answer in time is Hardcover's trouble; see
+  "When a request fails" in the overview.
